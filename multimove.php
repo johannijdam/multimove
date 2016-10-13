@@ -8,7 +8,9 @@ $args = array(
 	'new_db_username' => 'root',
 	'new_db_password' => 'silvercouch6',
 	'new_db_database' => 'wordpress_move',
-	'new_site_domain' => 'localhost',
+	'new_db_prefix' => 'wp_',
+	'new_wp_debug' => 'true',
+	'new_site_host' => 'localhost',
 	'new_site_domain_suffix' => 'mywdka',
 	'modify_config_files' => true,
 	'mofify_database' => true
@@ -60,6 +62,24 @@ class multimove{
 			//change db password
 			if(strpos(htmlentities($line), 'DB_PASSWORD')){
 				$newContents .= htmlentities("define('DB_PASSWORD','".$this->args['new_db_password']."')\n");
+				$found = true;
+			}
+
+			//change db host
+			if(strpos(htmlentities($line), 'DB_HOST')){
+				$newContents .= htmlentities("define('DB_HOST','".$this->args['new_site_host']."')\n");
+				$found = true;
+			}
+
+			//change db prefix
+			if(strpos(htmlentities($line), 'table_prefix')){
+				$newContents .= htmlentities('$table_prefix  = \'' . $this->args['new_db_prefix'] . '\';');
+				$found = true;
+			}
+
+			//change db host
+			if(strpos(htmlentities($line), '\'WP_DEBUG\'')){
+				$newContents .= htmlentities("define('WP_DEBUG','".$this->args['new_wp_debug']."')\n");
 				$found = true;
 			}
 
