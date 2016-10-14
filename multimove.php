@@ -42,6 +42,40 @@ class multimove{
 
 		//update wp-options
 		$this->update_wp_options();
+
+		//update wp-blogs
+		$this->update_wp_blogs();
+	}
+
+	//update wp-blogs
+	function update_wp_blogs(){
+		//set domain for all records
+		$paths = $this->conn->query(" SELECT `blog_id`, `path` FROM `wp_blogs` ");
+		while ($path = $paths->fetch_object()){
+			$arr_path_last = explode("/", rtrim($path->path, '/\\'));
+
+			//upate record with right path
+			$this->conn->query("
+				UPDATE `wp_blogs`
+				SET `wp_blogs`.`path` = '/".$this->args['new_site_domain_suffix']."/".end($arr_path_last)."/'
+				WHERE `wp_blogs`.`blog_id` = '".$path->blog_id."'
+			");
+
+			//but blog_id 1 should be default
+			$this->conn->query("
+				UPDATE `wp_blogs`
+				SET `wp_blogs`.`path` = '/".$this->args['new_site_domain_suffix']."/'
+				WHERE `wp_blogs`.`blog_id` = '1'
+			");
+		}
+
+		//set path for all records
+		$this->conn->query("
+			UPDATE `wp_blogs`
+			SET
+				`wp_blogs`.`domain` = '".$this->args['new_site_host']."'
+		");
+		array_push($this->log, "updated wp_blogs");
 	}
 
 	//update wp-options
@@ -54,7 +88,7 @@ class multimove{
 			WHERE
 				`wp_options`.`option_name` = 'siteurl'
 		");
-		array_push($this->log, "site_url updated");
+		array_push($this->log, "wp_options.site_url updated");
 
 		//update home
 		$this->conn->query("
@@ -64,7 +98,32 @@ class multimove{
 			WHERE
 				`wp_options`.`option_name` = 'home'
 		");
-		array_push($this->log, "home updated");
+		array_push($this->log, "wp_options.home updated");
+
+		//update all seperate subblogs
+		$tables = $this->conn->query("SHOW TABLES LIKE '%_options'");
+		while($table = mysqli_fetch_array($tables)){
+			$table_name = $table[0];
+
+			//skip the first blog, cause we did this already in the code before
+			if($table_name != $this->args['new_db_prefix'] . "options"){
+				//get current siteurl
+				$opt_value = $this->conn->query("SELECT `option_value` FROM `".$table_name."` WHERE `".$table_name."`.`option_name` = 'siteurl' ");
+				while($siteurl = mysqli_fetch_object($opt_value)){
+					//get the last value from url
+					$arr_path_last = explode("/", rtrim($siteurl->option_value, '/\\'));
+					$new_site_url = $this->args['new_url'] . end($arr_path_last);
+					
+					//update table with new values
+					$this->conn->query("UPDATE `".$table_name."` SET `".$table_name."`.`option_value` = '".$new_site_url."' WHERE `".$table_name."`.`option_name` = 'siteurl' ");
+					$this->conn->query("UPDATE `".$table_name."` SET `".$table_name."`.`option_value` = '".$new_site_url."' WHERE `".$table_name."`.`option_name` = 'home' ");
+				}
+
+			}			
+		}
+		array_push($this->log, "wp_options.site_url subblogs updated");
+		array_push($this->log, "wp_options.home subblogs updated");
+
 	}
 
 	//mysql connection
