@@ -7,14 +7,15 @@ $args = array(
 	'new_db_location' => 'localhost',
 	'new_db_username' => 'root',
 	'new_db_password' => '',
-	'new_db_database' => 'wordpress_move',
+	'new_db_database' => 'wordpress',
 	'new_db_prefix' => 'wp_',
 	'new_wp_debug' => 'true',
 	'new_site_host' => 'localhost',
 	'new_site_domain_suffix' => 'mywdka',
 	'modify_config_files' => true,
 	'modify_database' => true,
-	'new_url' => 'http://localhost/mywdka/'
+	'new_url' => 'http://localhost/mywdka/',
+	'modify_htaccess' => true
 );
 
 new multimove($args);
@@ -33,6 +34,7 @@ class multimove{
 		//fire required scripts
 		$this->args['modify_config_files'] ? $this->modify_config_files() : array_push($this->log, "Writing to config file was skipped due to wishes");
 		$this->args['modify_database'] ? $this->modify_database_tables() : array_push($this->log, "Changing the database was skipped due to wishes");
+		$this->args['modify_htaccess'] ? $this->modify_htaccess() : array_push($this->log, "Changing the htaccess was skipped due to wishes");
 	}
 
 	//fn: modify the database tables
@@ -156,28 +158,28 @@ class multimove{
 
 			//change db name
 			if(strpos(htmlentities($line), 'DB_NAME')){
-				$newContents .= htmlentities("define('DB_NAME','".$this->args['new_db_database']."')\n");
+				$newContents .= htmlentities("define('DB_NAME','".$this->args['new_db_database']."');\n");
 				array_push($this->log, "DB_NAME modified");
 				$found = true;
 			}
 
 			//change db user
 			if(strpos(htmlentities($line), 'DB_USER')){
-				$newContents .= htmlentities("define('DB_USER','".$this->args['new_db_username']."')\n");
+				$newContents .= htmlentities("define('DB_USER','".$this->args['new_db_username']."');\n");
 				array_push($this->log, "DB_USER modified");
 				$found = true;
 			}
 
 			//change db password
 			if(strpos(htmlentities($line), 'DB_PASSWORD')){
-				$newContents .= htmlentities("define('DB_PASSWORD','".$this->args['new_db_password']."')\n");
+				$newContents .= htmlentities("define('DB_PASSWORD','".$this->args['new_db_password']."');\n");
 				array_push($this->log, "DB_PASSWORD modified");
 				$found = true;
 			}
 
 			//change db host
 			if(strpos(htmlentities($line), 'DB_HOST')){
-				$newContents .= htmlentities("define('DB_HOST','".$this->args['new_site_host']."')\n");
+				$newContents .= htmlentities("define('DB_HOST','".$this->args['new_site_host']."');\n");
 				array_push($this->log, "DB_HOST modified");
 				$found = true;
 			}
@@ -221,6 +223,30 @@ class multimove{
 		//safe final file
 		$fp = fopen('wp-config.php', 'w');
 		fwrite($fp, html_entity_decode($newContents));
+		fclose($fp);
+	}
+
+	//create default htaccess
+	function modify_htaccess(){
+		$output_string = "RewriteEngine On" . "\n";
+		$output_string .= "RewriteBase /".$this->args['new_site_domain_suffix']."/" . "\n";
+		$output_string .= "RewriteRule ^index\.php$ - [L]" . "\n";
+		$output_string .= "" . "\n";
+		$output_string .= "# add a trailing slash to /wp-admin" . "\n";
+		$output_string .= "RewriteRule ^([_0-9a-zA-Z-]+/)?wp-admin$ $1wp-admin/ [R=301,L]" . "\n";
+		$output_string .= "" . "\n";
+		$output_string .= "RewriteCond %{REQUEST_FILENAME} -f [OR]" . "\n";
+		$output_string .= "RewriteCond %{REQUEST_FILENAME} -d" . "\n";
+		$output_string .= "RewriteRule ^ - [L]" . "\n";
+		$output_string .= "RewriteRule ^([_0-9a-zA-Z-]+/)?(wp-(content|admin|includes).*) $2 [L]" . "\n";
+		$output_string .= "RewriteRule ^([_0-9a-zA-Z-]+/)?(.*\.php)$ $2 [L]" . "\n";
+		$output_string .= "RewriteRule . index.php [L]" . "\n";
+
+		//make backup of the current file
+		copy('.htaccess','.htaccess.bak');
+
+		$fp = fopen('.htaccess', 'w');
+		fwrite($fp, html_entity_decode($output_string));
 		fclose($fp);
 	}
 
